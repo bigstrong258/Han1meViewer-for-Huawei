@@ -1,3 +1,47 @@
+# Han1meViewer for Huawei (HarmonyOS)
+
+本项目是基于 [misaka10032w/Han1meViewer](https://github.com/misaka10032w/Han1meViewer) 的二次开发版本，专为解决华为/荣耀等搭载 **HarmonyOS 4.2** 及以上系统的设备在通过 Cloudflare 验证时出现的兼容性问题。
+
+## 🌟 核心改进
+
+- **内核升级支持**：集成 [WebViewUpgrade](https://github.com/JonaNorman/WebViewUpgrade) 项目，通过动态注入独立 WebView 内核，解决了鸿蒙系统底层 WebView 版本过低导致无法通过 Cloudflare 高级验证（死循环）的顽疾。
+- **签名校验绕过**：移除了原版应用中的签名一致性检查逻辑，支持用户自行编译、分发及侧载，解决了因签名不匹配导致的“应用已被篡改”警告及功能限制。
+- **正式版优化**：针对 Release 构建配置了精准的 ProGuard 混淆规则，确保在混淆状态下内核升级逻辑依然稳定运行。
+
+## 📦 下载与安装
+
+由于本项目集成了体积较大的独立内核，**请不要直接下载源码进行编译**（除非你阅读了下文的开发者说明）。
+
+建议直接前往 [Releases](https://github.com/bigstrong258/Han1meViewer_for_Huawei/releases) 页面下载预编译好的 **APK 安装包**。
+
+## 🛠️ 开发者说明 (编译指南)
+
+由于 GitHub 的单文件大小限制（100MB），本项目源码仓库中**未包含** 200MB+ 的独立内核文件（`com.google.android.webview.apk`）。
+
+如果你希望自行编译本项目：
+1. 请自行获取合适的 WebView 内核文件（通常为 `.apk` 格式）。
+2. 将该文件重命名为 `com.google.android.webview.mp3`。
+3. 放置于 `app/src/main/assets/` 目录下。
+4. 确保 `WebViewUpgradeUtil` 中的调用逻辑与该文件名一致。
+5. 使用 Android Studio 进行打包。
+
+## 📜 协议与致谢
+
+- 本项目基于 [Apache License 2.0](LICENSE) 协议开源。
+- 感谢原作者 [misaka10032w](https://github.com/misaka10032w/Han1meViewer) 提供的优秀项目基础。
+- 感谢 [JonaNorman](https://github.com/JonaNorman/WebViewUpgrade) 提供的 WebView 升级方案。
+- 感谢 [HitHate](https://github.com/misaka10032w/Han1meViewer/discussions/319) 提供的解决方案。
+
+## ⚠️ 免责声明
+
+1. 本项目仅供学习、研究及适配高版本 HarmonyOS 环境使用，严禁用于任何商业用途。
+2. 软件内容来源于第三方网站，本项目不存储、不上传任何视频资源。
+3. 用户在使用本程序时产生的一切后果由使用者自行承担，作者不承担任何法律责任。
+
+## ⬇️ 以下为原仓库 README 内容 / Original README Below
+
+> **Note**: The content below is from the original repository [misaka10032w/Han1meViewer](https://github.com/misaka10032w/Han1meViewer).
+
 # <font color='red'>🚫请不要在任何公开平台宣传本软件，本软件不接受任何形式的公开宣传，否则仓库主将随时归档隐藏该仓库并删除已编译的发行版🚫</font>
 # 本应用没有任何官方网站，仅Github Release、CI持续构建产物为唯一下载及更新渠道
 # Han1meViewer

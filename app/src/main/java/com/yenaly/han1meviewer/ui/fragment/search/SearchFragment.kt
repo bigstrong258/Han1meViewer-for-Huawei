@@ -355,10 +355,12 @@ class SearchFragment : YenalyFragment<FragmentSearchBinding>(), StateLayoutMixin
     }
 
     fun setSearchText(text: String?, canTextChange: Boolean = true) {
-        if (!isLegalBuild(requireContext(), getSha(requireContext(),R.raw.akarin))){
-            binding.searchBar.searchText = requireContext().getString(R.string.app_tampered)
-            return
-        }
+        // --- 把下面这几行全注释掉 ---
+        // if (!isLegalBuild(requireContext(), getSha(requireContext(),R.raw.akarin))){
+        //     binding.searchBar.searchText = requireContext().getString(R.string.app_tampered)
+        //     return
+        // }
+        // -------------------------
         viewModel.query = text
         binding.searchBar.searchText = text
         binding.searchBar.canTextChange = canTextChange
