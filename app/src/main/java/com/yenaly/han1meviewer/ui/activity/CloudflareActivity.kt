@@ -23,6 +23,7 @@ import com.yenaly.han1meviewer.USER_AGENT
 import com.yenaly.han1meviewer.databinding.ActivityCloudflareBinding
 import com.yenaly.han1meviewer.util.CookieString
 import java.util.Locale
+import com.yenaly.han1meviewer.util.WebViewUpgradeUtil
 
 class CloudflareActivity : AppCompatActivity() {
 
@@ -35,6 +36,14 @@ class CloudflareActivity : AppCompatActivity() {
     private lateinit var webView: WebView
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 1. 【核心位置】在这里调用，确保在 WebView 控件被创建前完成“偷梁换柱”
+        try {
+            WebViewUpgradeUtil().Upgrade(this)
+        } catch (e: Exception) {
+            // 如果升级逻辑本身报错，可以记录一下，或者决定是否继续
+            e.printStackTrace()
+        }
+
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         try {
@@ -66,6 +75,8 @@ class CloudflareActivity : AppCompatActivity() {
         }
 
         initWebview(url, webView)
+        // 在 initWebview(url, webView) 下面加这一行
+        android.util.Log.d("WebViewCheck", "当前内核版本: ${webView.settings.userAgentString}")
     }
     @SuppressLint("SetJavaScriptEnabled")
     private fun initWebview(url: String, webView: WebView){

@@ -18,8 +18,8 @@ plugins {
     alias(libs.plugins.com.google.firebase.firebase.pref)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.navigation.safeargs)
-    id("com.mikepenz.aboutlibraries.plugin") version "12.2.4"
-    id("com.github.ben-manes.versions") version "0.52.0"
+    id("com.mikepenz.aboutlibraries.plugin") version "13.2.1"
+    id("com.github.ben-manes.versions") version "0.53.0"
 }
 
 android {
@@ -42,6 +42,14 @@ android {
         versionCode = code
         versionName = name
 
+        // --- 在这里添加 ---
+        ndk {
+            // 只打包 arm64-v8a 架构。
+            // 这会过滤掉 x86、x86_64 和 armeabi-v7a，包体积会显著减小
+            abiFilters.add("arm64-v8a")
+        }
+        // -----------------
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "COMMIT_SHA", "\"$commitSha\"")
@@ -63,7 +71,7 @@ android {
 
     splits {
         abi {
-            isEnable = (gradle.startParameter.taskRequests.toString().contains("Release"))
+            isEnable = false
             reset()
             include("arm64-v8a")
             isUniversalApk = false
@@ -94,7 +102,6 @@ android {
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             )
-            applicationIdSuffix = ".debug"
             manifestPlaceholders.put("appIcon", "@mipmap/ic_launcher_debug")
         }
     }
@@ -223,6 +230,9 @@ dependencies {
     androidTestImplementation(libs.test.espresso.core)
 
     // debugImplementation(libs.leak.canary)
+    implementation("io.github.jonanorman.android.webviewup:core:0.1.0")
+    // 下载源模块 - 远程 APK 下载必需
+    implementation("io.github.jonanorman.android.webviewup:download-source:0.1.0")
 }
 
 /**

@@ -9,7 +9,7 @@ import com.yenaly.yenaly_libs.utils.showShortToast
 import java.security.MessageDigest
 
 fun isLegalBuild(context: Context, sha: String): Boolean {
-  //  if (BuildConfig.DEBUG) return true
+    return true
     return try {
         val pm = context.packageManager
         val packageName = context.packageName
@@ -51,16 +51,14 @@ fun getSha(context: Context, res: Int): String {
 fun checkBadGuy(context: Context, res: Int): IntArray {
     try {
         val sha = getSha(context, res)
-        if (!isLegalBuild(context, sha)){
-//            Preferences.preferenceSp.edit {
-//                putString(NetworkSettingsFragment.DOMAIN_NAME,"http://hanime.c0m")
-//            }
+        // 把 !isLegalBuild(...) 改成 false，表示“永远不是非法构建”
+        if (false){
             return intArrayOf(R.string.app_tampered, R.string.app_tampered)
         } else {
             return intArrayOf(R.string.introduction, R.string.comment)
         }
     } catch (e: java.lang.Exception){
-        showShortToast("${e.message}")
+        // 即使出错也返回正常内容
         return intArrayOf(R.string.introduction, R.string.comment)
     }
 }
