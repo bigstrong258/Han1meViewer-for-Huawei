@@ -555,17 +555,19 @@ class HomePageFragment : YenalyFragment<FragmentHomePageBinding>(),
 
     override fun onResume() {
         super.onResume()
-        // 只有当 HomePageFragment 在最前台时，才启用自己的返回回调
         if (isAdded) {
             onBackPressedCallback.isEnabled = true
         }
         (activity as? ToolbarHost)?.hideToolbar()
+        (activity as MainActivity).setupToolbar()
     }
 
     override fun onPause() {
         super.onPause()
-        // 只要 HomePageFragment 被覆盖或离开前台，立刻禁用回调
         onBackPressedCallback.isEnabled = false
+        (activity as? MainActivity)?.setSupportActionBar(
+            activity?.findViewById(R.id.toolbar)
+        )
     }
 
     @SuppressLint("SetTextI18n")

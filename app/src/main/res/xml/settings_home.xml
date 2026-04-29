@@ -45,6 +45,13 @@
             app:summary="@string/disable_mobile_data_warning_summary"
             app:title="@string/disable_mobile_data_warning" />
 
+        <com.yenaly.yenaly_libs.base.preference.MaterialSwitchPreference
+            app:defaultValue="false"
+            app:icon="@drawable/ic_baseline_arrow_back_24"
+            app:key="disable_predictive_back"
+            app:summary="@string/disable_predictive_back_summary"
+            app:title="@string/disable_predictive_back_title" />
+
         <Preference
             app:icon="@drawable/ic_baseline_play_circle_outline_24"
             app:key="player_settings"

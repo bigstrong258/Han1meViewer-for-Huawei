@@ -103,6 +103,7 @@ class HomeSettingsFragment : YenalySettingsFragment(R.xml.settings_home) {
         const val SEARCH_ARTIST_IGNORE_VIDEO_TYPE = "search_artist_ignore_video_type"
         const val DISABLE_MOBILE_DATA_WARNING = "disable_mobile_data_warning"
         const val COLLAPSE_DOWNLOADED_GROUP = "collapse_downloaded_group"
+        const val DISABLE_PREDICTIVE_BACK = "disable_predictive_back"
     }
 
     private val videoLanguage
@@ -149,6 +150,8 @@ class HomeSettingsFragment : YenalySettingsFragment(R.xml.settings_home) {
             by safePreference<MaterialSwitchPreference>(ALLOW_RESUME_PLAYBACK)
     private val disableMobileDataWarning
             by safePreference<MaterialSwitchPreference>(DISABLE_MOBILE_DATA_WARNING)
+    private val disablePredictiveBack
+            by safePreference<MaterialSwitchPreference>(DISABLE_PREDICTIVE_BACK)
 
     private var checkUpdateTimes = 0
 
@@ -165,7 +168,6 @@ class HomeSettingsFragment : YenalySettingsFragment(R.xml.settings_home) {
             getString(R.string.settings),
             canNavigateBack = true
         )
-
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -322,6 +324,12 @@ class HomeSettingsFragment : YenalySettingsFragment(R.xml.settings_home) {
                 if (newValue != Preferences.allowResumePlayback) {
                     //TODO 可能做点什么？
                 }
+                return@setOnPreferenceChangeListener true
+            }
+        }
+        disablePredictiveBack.apply {
+            setOnPreferenceChangeListener { _, _ ->
+                activity?.recreate()
                 return@setOnPreferenceChangeListener true
             }
         }

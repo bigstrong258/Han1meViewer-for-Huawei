@@ -47,6 +47,7 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.drawerlayout.widget.DrawerLayout.DrawerListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -88,6 +89,7 @@ import com.yenaly.yenaly_libs.utils.showSnackBar
 import com.yenaly.yenaly_libs.utils.textFromClipboard
 import kotlinx.coroutines.launch
 import kotlin.time.ExperimentalTime
+import androidx.core.graphics.createBitmap
 
 /**
  * @project Hanime1
@@ -132,6 +134,11 @@ class MainActivity : YenalyActivity<ActivityMainBinding>(), DrawerListener, Tool
         }
     }
 
+    // Predictive back preview: cache of previous fragment for showing behind scaled view
+    private var previewImageView: ImageView? = null
+    private val previewBitmapCache = HashMap<Int, android.graphics.Bitmap>() // destId → bitmap
+    private val backCornerRadius by lazy { 24f.dp.toFloat() }
+
 
     override fun getViewBinding(layoutInflater: LayoutInflater): ActivityMainBinding =
         ActivityMainBinding.inflate(layoutInflater)
@@ -147,6 +154,7 @@ class MainActivity : YenalyActivity<ActivityMainBinding>(), DrawerListener, Tool
     /**
      * 初始化数据
      */
+    @SuppressLint("ClickableViewAccessibility")
     override fun initData(savedInstanceState: Bundle?) {
         navHostFragment = supportFragmentManager.findFragmentById(R.id.fcv_main) as NavHostFragment
         navController = navHostFragment.navController
@@ -158,6 +166,34 @@ class MainActivity : YenalyActivity<ActivityMainBinding>(), DrawerListener, Tool
         setSupportActionBar(findViewById(R.id.toolbar))
         initHeaderView()
         initMenu()
+        
+        // Initialize preview ImageView for predictive back gesture
+        previewImageView = binding.root.findViewById(R.id.preview_image)
+        previewImageView?.isClickable = false
+        previewImageView?.isEnabled = false
+        previewImageView?.setOnTouchListener { _, _ -> false }
+
+        // Cache fragment views when they become primary for predictive back preview
+        navHostFragment.childFragmentManager.registerFragmentLifecycleCallbacks(
+            object : FragmentManager.FragmentLifecycleCallbacks() {
+                override fun onFragmentResumed(fm: FragmentManager, f: Fragment) {
+                    val destId = navController.currentDestination?.id ?: return
+                    val view = f.view ?: return
+                    if (view.width <= 0 || view.height <= 0) return
+                    try {
+                        val bmp = createBitmap(view.width, view.height)
+                        val canvas = android.graphics.Canvas(bmp)
+                        view.draw(canvas)
+                        synchronized(previewBitmapCache) {
+                            previewBitmapCache[destId]?.recycle()
+                            previewBitmapCache[destId] = bmp
+                        }
+                    } catch (_: Exception) {}
+                }
+            },
+            false
+        )
+
         ViewCompat.setOnApplyWindowInsetsListener(binding.nvMain) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -186,6 +222,7 @@ class MainActivity : YenalyActivity<ActivityMainBinding>(), DrawerListener, Tool
                 binding.dlMain.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
             }
         }
+        setupPredictiveBack()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -320,10 +357,11 @@ class MainActivity : YenalyActivity<ActivityMainBinding>(), DrawerListener, Tool
                 }
 
                 override fun onAuthenticationFailed() {
-                    onFailed()
+                    // 指纹被识别但不匹配（单次）
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    // 取消、锁定、连续失败后触发
                     onFailed()
                 }
             }
@@ -695,27 +733,15 @@ class MainActivity : YenalyActivity<ActivityMainBinding>(), DrawerListener, Tool
 
     override fun setupToolbar(title: CharSequence, canNavigateBack: Boolean) {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        val theme = toolbar.context.theme
-        val titleTypedValue  = TypedValue()
-        val bgTypedValue  = TypedValue()
-
-        setSupportActionBar(toolbar)
+        toolbar.menu.clear()
         supportActionBar?.apply {
             this.title = title
             setDisplayHomeAsUpEnabled(canNavigateBack)
-            setHomeAsUpIndicator(R.drawable.ic_baseline_arrow_back_24)
-        }
-
-        if (theme.resolveAttribute(com.google.android.material.R.attr.colorOnBackground, titleTypedValue , true)) {
-            toolbar.setTitleTextColor(titleTypedValue.data)
-        }
-
-        if (theme.resolveAttribute(com.google.android.material.R.attr.colorSurface, bgTypedValue , true)) {
-            toolbar.setBackgroundColor(bgTypedValue.data)
-        }
-
-        toolbar.setNavigationOnClickListener {
-            onBackPressedDispatcher.onBackPressed()
+            if (canNavigateBack) {
+                setHomeAsUpIndicator(R.drawable.ic_baseline_arrow_back_24)
+            } else {
+                setHomeAsUpIndicator(null)
+            }
         }
     }
 
@@ -851,6 +877,112 @@ class MainActivity : YenalyActivity<ActivityMainBinding>(), DrawerListener, Tool
         val videoFragment =
             navHostFragment.childFragmentManager.primaryNavigationFragment as? VideoFragment
         videoFragment?.togglePlayPause()
+    }
+
+    private fun setupPredictiveBack() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        if (Preferences.disablePredictiveBack) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_OVERLAY
+            ) {
+                onBackPressedDispatcher.onBackPressed()
+            }
+        } else {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_OVERLAY,
+                object : android.window.OnBackAnimationCallback {
+                    private var fragmentView: View? = null
+                    private var viewWidth = 0f
+                    private var viewHeight = 0f
+
+                    override fun onBackStarted(backEvent: android.window.BackEvent) {
+                        if (navController.currentDestination?.id == R.id.nv_home_page) {
+                            fragmentView = null
+                            return
+                        }
+                        fragmentView = navHostFragment.childFragmentManager
+                            .primaryNavigationFragment?.view
+                        fragmentView?.let {
+                            viewWidth = it.width.toFloat()
+                            viewHeight = it.height.toFloat()
+
+                            // Apply rounded corners
+                            it.clipToOutline = true
+                            it.outlineProvider = object : android.view.ViewOutlineProvider() {
+                                override fun getOutline(view: View, outline: android.graphics.Outline) {
+                                    outline.setRoundRect(
+                                        0, 0, view.width, view.height, backCornerRadius
+                                    )
+                                }
+                            }
+
+                            // Show the cached preview of previous fragment
+                            showCachedPreview()
+                        }
+                    }
+
+                    override fun onBackProgressed(backEvent: android.window.BackEvent) {
+                        val v = fragmentView ?: return
+                        val progress = backEvent.progress.coerceIn(0f, 1f)
+                        val scale = 1f - progress * 0.1f
+                        val touchX = backEvent.touchX
+                        val touchY = backEvent.touchY
+                        v.pivotX = viewWidth / 2f
+                        v.pivotY = viewHeight / 2f
+                        v.scaleX = scale
+                        v.scaleY = scale
+                        v.translationX = (touchX - viewWidth / 2f) * progress * 0.1f
+                        v.translationY = (touchY - viewHeight / 2f) * progress * 0.1f
+                    }
+
+                    override fun onBackInvoked() {
+                        fragmentView?.clipToOutline = false
+                        hidePreview()
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+
+                    override fun onBackCancelled() {
+                        fragmentView?.clipToOutline = false
+                        hidePreview()
+                        fragmentView?.animate()
+                            ?.scaleX(1f)?.scaleY(1f)
+                            ?.translationX(0f)?.translationY(0f)
+                            ?.setDuration(200)
+                            ?.start()
+                    }
+                }
+            )
+        }
+    }
+
+    /**
+     * Show the cached preview bitmap when back gesture starts
+     */
+    private fun showCachedPreview() {
+        val prevDestId = navController.previousBackStackEntry?.destination?.id ?: return
+        val bitmap = synchronized(previewBitmapCache) {
+            previewBitmapCache[prevDestId]
+        }
+        if (bitmap != null && previewImageView != null) {
+            previewImageView?.setImageBitmap(bitmap)
+            previewImageView?.visibility = View.VISIBLE
+        }
+    }
+
+    /**
+     * Hide the preview ImageView and dim overlay
+     */
+    private fun hidePreview() {
+        previewImageView?.visibility = View.GONE
+        previewImageView?.setImageBitmap(null)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        synchronized(previewBitmapCache) {
+            previewBitmapCache.values.forEach { it.recycle() }
+            previewBitmapCache.clear()
+        }
     }
 
 }

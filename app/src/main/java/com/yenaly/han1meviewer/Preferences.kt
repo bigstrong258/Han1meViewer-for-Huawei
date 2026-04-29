@@ -234,6 +234,9 @@ object Preferences {
     val disableMobileDataWarning: Boolean
         get() = preferenceSp.getBoolean(HomeSettingsFragment.DISABLE_MOBILE_DATA_WARNING,false)
 
+    val disablePredictiveBack: Boolean
+        get() = preferenceSp.getBoolean(HomeSettingsFragment.DISABLE_PREDICTIVE_BACK, false)
+
     /**
      * MPV播放器设置
      */

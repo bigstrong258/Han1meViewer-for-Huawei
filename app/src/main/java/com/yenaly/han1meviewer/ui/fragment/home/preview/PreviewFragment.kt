@@ -207,7 +207,6 @@ class PreviewFragment : YenalyFragment<FragmentPreviewBinding>() {
         binding.toolbar.setNavigationOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
-        binding.toolbar.setTitleTextColor(colorOnPrimary)
         (requireActivity() as AppCompatActivity).supportActionBar?.let {
             it.title = null
             it.setDisplayHomeAsUpEnabled(true)
