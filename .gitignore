@@ -41,6 +41,7 @@ Thumbs.db
 *.log
 *.tmp
 *.swp
+sync_upstream.bat
 
 # 开发环境文件
 .env
