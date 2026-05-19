@@ -159,8 +159,16 @@ class CloudflareActivity : AppCompatActivity() {
         webView.loadUrl(url)
     }
     override fun onDestroy() {
+        if (this::webView.isInitialized) {
+            webView.apply {
+                stopLoading()
+                webChromeClient = null
+                webViewClient = WebViewClient()
+                removeAllViews()
+                destroy()
+            }
+        }
         super.onDestroy()
-        webView.destroy()
     }
     private fun applyAppLocale(context: Context): Context {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)

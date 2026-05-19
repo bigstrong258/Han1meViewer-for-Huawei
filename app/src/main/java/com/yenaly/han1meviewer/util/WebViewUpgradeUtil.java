@@ -3,6 +3,10 @@ package com.yenaly.han1meviewer.util;
 import static com.yenaly.yenaly_libs.utils.ContextUtil.getApplicationContext;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
@@ -11,19 +15,26 @@ import com.norman.webviewup.lib.UpgradeCallback;
 import com.norman.webviewup.lib.WebViewUpgrade;
 import com.norman.webviewup.lib.source.UpgradeAssetSource;
 import com.norman.webviewup.lib.source.UpgradeSource;
+import com.yenaly.han1meviewer.R;
+import com.yenaly.yenaly_libs.ActivityManager;
 
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class WebViewUpgradeUtil {
 
+    private static final String TAG = "WebViewUpgradeUtil";
+    private static final String PREF_NAME = "webview_upgrade";
+    private static final String UPGRADE_PACKAGE_KEY = "x86";
+    private static final long RESTART_DELAY_MS = 1000L;
 
     private static final Map<String, List<UpgradeInfo>> UPGRADE_PACKAGE_MAP = new HashMap<>();
 
     static {
-        UPGRADE_PACKAGE_MAP.put("x86", List.of(
+        UPGRADE_PACKAGE_MAP.put(UPGRADE_PACKAGE_KEY, List.of(
                 new UpgradeInfo("com.google.android.webview",
                         "146.0.7680.115",
                         "com.google.android.webview.mp3",
@@ -32,31 +43,87 @@ public class WebViewUpgradeUtil {
 
 
     public void Upgrade(Context context) {
+        Context appContext = getApplicationContext();
+        if (isSamsungDevice()) {
+            Toast.makeText(appContext, R.string.webview_upgrade_samsung_unsupported, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (!isHuaweiDevice()) {
+            Toast.makeText(appContext, R.string.webview_upgrade_other_brand_hint, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        List<UpgradeInfo> upgradeInfoList = UPGRADE_PACKAGE_MAP.get(UPGRADE_PACKAGE_KEY);
+        if (upgradeInfoList == null || upgradeInfoList.isEmpty()) return;
+
+        UpgradeInfo upgradeInfo = upgradeInfoList.get(0);
+        if (isUpgradeApplied(appContext, upgradeInfo)) return;
+        if (WebViewUpgrade.isProcessing() || WebViewUpgrade.isCompleted()) return;
 
         WebViewUpgrade.addUpgradeCallback(new UpgradeCallback() {
+            private boolean hasShownProcessToast;
+
             @Override
             public void onUpgradeProcess(float percent) {
-                Toast.makeText(getApplicationContext(), "正在更新", Toast.LENGTH_SHORT).show();
+                if (!hasShownProcessToast) {
+                    hasShownProcessToast = true;
+                    Toast.makeText(appContext, R.string.webview_upgrade_processing, Toast.LENGTH_SHORT).show();
+                }
             }
 
             @Override
             public void onUpgradeComplete() {
-                Toast.makeText(getApplicationContext(), "更新成功", Toast.LENGTH_SHORT).show();
+                markUpgradeApplied(appContext, upgradeInfo);
+                Toast.makeText(appContext, R.string.webview_upgrade_complete_restart, Toast.LENGTH_LONG).show();
+                new Handler(Looper.getMainLooper()).postDelayed(() ->
+                        ActivityManager.restart(true), RESTART_DELAY_MS);
+                WebViewUpgrade.removeUpgradeCallback(this);
             }
 
             @Override
             public void onUpgradeError(Throwable throwable) {
-                Toast.makeText(getApplicationContext(), "更新失败", Toast.LENGTH_SHORT).show();
-                Log.e("MainActivity", "message:" + throwable.getMessage() + "\nstackTrace:" + Log.getStackTraceString(throwable));
+                Toast.makeText(appContext, R.string.webview_upgrade_failed, Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "message:" + throwable.getMessage() + "\nstackTrace:" + Log.getStackTraceString(throwable));
+                WebViewUpgrade.removeUpgradeCallback(this);
             }
         });
 
-        List<UpgradeInfo> upgradeInfoList = UPGRADE_PACKAGE_MAP.get("x86");
-
-        UpgradeInfo upgradeInfo = upgradeInfoList.get(0);
         UpgradeSource upgradeSource = getUpgradeSource(upgradeInfo, context);
-        System.out.println();
         WebViewUpgrade.upgrade(upgradeSource);
+    }
+
+    private static boolean isHuaweiDevice() {
+        return containsIgnoreCase(Build.MANUFACTURER, "huawei")
+                || containsIgnoreCase(Build.BRAND, "huawei");
+    }
+
+    private static boolean isSamsungDevice() {
+        return containsIgnoreCase(Build.MANUFACTURER, "samsung")
+                || containsIgnoreCase(Build.BRAND, "samsung");
+    }
+
+    private static boolean containsIgnoreCase(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword);
+    }
+
+    private static boolean isUpgradeApplied(Context context, UpgradeInfo upgradeInfo) {
+        return getPreferences(context).getBoolean(getUpgradeAppliedKey(upgradeInfo), false);
+    }
+
+    private static void markUpgradeApplied(Context context, UpgradeInfo upgradeInfo) {
+        getPreferences(context)
+                .edit()
+                .putBoolean(getUpgradeAppliedKey(upgradeInfo), true)
+                .commit();
+    }
+
+    private static SharedPreferences getPreferences(Context context) {
+        return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+    }
+
+    private static String getUpgradeAppliedKey(UpgradeInfo upgradeInfo) {
+        return "applied_" + upgradeInfo.packageName + "_" + upgradeInfo.versionName;
     }
 
     private static UpgradeSource getUpgradeSource(UpgradeInfo upgradeInfo, Context context) {
